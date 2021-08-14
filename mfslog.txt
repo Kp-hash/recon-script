@@ -1,0 +1,88 @@
+
+----------generate a range of numbers increasing arithmetically
+ with x as (
+select
+	n
+from
+	(
+values (0),
+(1),
+(2),
+(3),
+(4),
+(5),
+(6),
+(7),
+(8),
+(9)) v(n)),
+range as (
+select
+	ones.n + 10 * tens.n + 100 * hundreds.n + 1000 * thousands.n as nums
+from
+	x ones,
+	x tens,
+	x hundreds,
+	x thousands
+order by
+	1),
+----------get the number appended to each file from the audit log table daily
+ recon as (
+select
+	cast(file_names as bigint) as file_names,
+	tbl_dt
+from
+	((
+	select
+		distinct split_part(split_part(file_name,'-',2),'.',2) as file_names,
+		tbl_dt
+	from
+		flare_8.audit_logs
+	where
+		tbl_dt = 20200601
+	order by
+		(split_part(split_part(file_name,
+		'-',
+		2),
+		'.',
+		2)) desc))),
+----------get the maximum file number from the audit log table
+ max_nums as (
+select
+	max(file_names)
+from
+	recon),
+----------get the minimum file number from the audit log table
+ min_nums as (
+select
+	min(file_names)
+from
+	recon),
+-----------filter the generated number sequence to be between the range of the minimum and maximum file number in fin log
+ num_sequence as (
+select
+	*
+from
+	range
+where
+	nums between (
+	select
+		*
+	from
+		min_nums) and (
+	select
+		*
+	from
+		max_nums)
+order by
+	nums desc)
+-----------join the filtered number sequence table and the finlog file numbers and wherever has null values for the file_names is a missing file
+ select
+	b.tbl_dt,
+	b.file_names,
+	a.*
+from
+	num_sequence as a
+left join recon as b on
+	a.nums = b.file_names
+order by
+	nums desc
